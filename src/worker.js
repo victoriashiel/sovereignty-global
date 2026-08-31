@@ -50,12 +50,20 @@ async function handleApi(request, env, url) {
 
   if (pathname === '/api/auth/login' && request.method === 'POST') {
     const body=await readJson(request), email=normalizeEmail(body.email), password=String(body.password||'');
+    if(email==='legal@sovereigntyglobal.org'){
+      const staff=await env.DB.prepare('SELECT * FROM staff_users WHERE email=? AND status=?').bind(email,'active').first();
+      if(!staff)return json({error:'Email or password is incorrect.'},401);
+      const staffCandidate=await hashPassword(password,staff.password_salt,staff.password_iterations||PASSWORD_ITERATIONS);
+      if(!constantTimeEqual(staffCandidate,staff.password_hash))return json({error:'Email or password is incorrect.'},401);
+      const staffSession=await createStaffSession(env.DB,staff.id);
+      return json({ok:true,redirect:'/staff.html',accountType:'staff'},200,{ 'Set-Cookie':staffSessionCookie(staffSession.token) });
+    }
     const user=await env.DB.prepare('SELECT * FROM users WHERE email=? AND status=?').bind(email,'active').first();
     if (!user) return json({ error:'Email or password is incorrect.' },401);
     const candidate=await hashPassword(password,user.password_salt,user.password_iterations||PASSWORD_ITERATIONS);
     if (!constantTimeEqual(candidate,user.password_hash)) return json({ error:'Email or password is incorrect.' },401);
     const session=await createSession(env.DB,user.id);
-    return json({ ok:true, redirect:'/portal-overview.html' },200,{ 'Set-Cookie':clientSessionCookie(session.token) });
+    return json({ ok:true, redirect:'/portal-overview.html',accountType:'client' },200,{ 'Set-Cookie':clientSessionCookie(session.token) });
   }
 
   if (pathname === '/api/auth/logout' && request.method === 'POST') {
@@ -158,6 +166,8 @@ async function handleStaff(request,env,url){
 
   if(pathname==='/api/staff/invitations'&&request.method==='POST')return createInvitation(request,env.DB,url.origin);
   if(pathname==='/api/staff/documents'&&request.method==='POST')return uploadDocument(request,env,staff.id);
+  const viewDoc=pathname.match(/^\/api\/staff\/documents\/([^/]+)\/view$/);
+  if(viewDoc&&request.method==='GET')return viewStaffDocument(env,viewDoc[1]);
   const dm=pathname.match(/^\/api\/staff\/documents\/([^/]+)$/);
   if(dm&&request.method==='DELETE')return deleteDocument(env,dm[1]);
 
@@ -189,6 +199,15 @@ async function uploadDocument(request,env,staffId,forcedClientId='',linkedReques
   await env.CLIENT_FILES.put(r2Key,file.stream(),{httpMetadata:{contentType:file.type||'application/octet-stream'}});
   await env.DB.prepare('INSERT INTO documents (id,user_id,title,category,r2_key,mime_type,file_size,created_at,uploaded_by_staff_id,linked_request_id) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(id,user.id,title,category,r2Key,file.type||'application/octet-stream',file.size,now,staffId,linkedRequestId||null).run();
   return json({ok:true,id,createdAt:now},201);
+}
+
+async function viewStaffDocument(env,id){
+  if(!env.CLIENT_FILES)return json({error:'R2 document storage is not bound yet.'},503);
+  const doc=await env.DB.prepare('SELECT * FROM documents WHERE id=?').bind(id).first();
+  if(!doc)return json({error:'Document not found.'},404);
+  const object=await env.CLIENT_FILES.get(doc.r2_key);
+  if(!object)return json({error:'Document file is unavailable.'},404);
+  return new Response(object.body,{headers:{'Content-Type':doc.mime_type||'application/octet-stream','Content-Disposition':`inline; filename="${safeFilename(doc.title,doc.mime_type)}"`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
 }
 
 async function fulfilRequest(request,env,staffId,requestId){
