@@ -2,118 +2,19 @@ const qs=(s)=>document.querySelector(s);
 const qsa=(s)=>[...document.querySelectorAll(s)];
 const show=(el,text,type='info')=>{if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.add('is-visible')};
 const clear=(el)=>{if(!el)return;el.textContent='';el.classList.remove('is-visible')};
-const api=async(path,options={})=>{
-  const headers={...(options.headers||{})};
-  if(options.body && !(options.body instanceof FormData) && !headers['Content-Type']) headers['Content-Type']='application/json';
-  const res=await fetch(path,{credentials:'same-origin',...options,headers});
-  let data={};
-  try{data=await res.json()}catch{}
-  if(!res.ok) throw new Error(data.error||`Request failed (${res.status})`);
-  return data;
-};
+const api=async(path,options={})=>{const headers={...(options.headers||{})};if(options.body&&!(options.body instanceof FormData)&&!headers['Content-Type'])headers['Content-Type']='application/json';const res=await fetch(path,{credentials:'same-origin',...options,headers});let data={};try{data=await res.json()}catch{}if(!res.ok)throw new Error(data.error||`Request failed (${res.status})`);return data};
 
 const inviteToken=qs('#invite-token');
-if(inviteToken){
-  const token=new URLSearchParams(location.search).get('invite')||'';
-  inviteToken.value=token;
-  const form=qs('#activate-form');
-  const msg=qs('#activate-message');
-  const email=qs('#activate-email');
-  if(!token){
-    form.querySelectorAll('input,button').forEach(el=>el.disabled=true);
-    show(msg,'This activation page requires a valid private invitation link. Contact accounts@sovereigntyglobal.org if you need a new invitation.','error');
-  }else{
-    api(`/api/auth/invite?token=${encodeURIComponent(token)}`).then(data=>{
-      email.value=data.email||'';
-      email.readOnly=true;
-      const copy=qs('#invite-copy');
-      if(copy && data.clientName) copy.textContent=`Invitation verified for ${data.clientName}. Create a password to activate your account.`;
-    }).catch(err=>{
-      form.querySelectorAll('input,button').forEach(el=>el.disabled=true);
-      show(msg,err.message,'error');
-    });
-  }
-  form.addEventListener('submit',async(e)=>{
-    e.preventDefault();clear(msg);
-    const password=qs('#activate-password').value;
-    const confirm=qs('#activate-confirm').value;
-    if(password!==confirm){show(msg,'The passwords do not match.','error');return}
-    const button=form.querySelector('button');button.disabled=true;button.textContent='Activating…';
-    try{
-      const data=await api('/api/auth/activate',{method:'POST',body:JSON.stringify({invite:token,email:email.value,password})});
-      show(msg,'Account activated. Redirecting…','success');
-      location.href=data.redirect||'/portal.html';
-    }catch(err){show(msg,err.message,'error');button.disabled=false;button.textContent='Activate account'}
-  });
-}
+if(inviteToken){const token=new URLSearchParams(location.search).get('invite')||'';inviteToken.value=token;const form=qs('#activate-form'),msg=qs('#activate-message'),email=qs('#activate-email');if(!token){form.querySelectorAll('input,button').forEach(el=>el.disabled=true);show(msg,'This activation page requires a valid private invitation link. Contact accounts@sovereigntyglobal.org if you need a new invitation.','error')}else{api(`/api/auth/invite?token=${encodeURIComponent(token)}`).then(data=>{email.value=data.email||'';email.readOnly=true;const copy=qs('#invite-copy');if(copy&&data.clientName)copy.textContent=`Invitation verified for ${data.clientName}. Create a password to activate your account.`}).catch(err=>{form.querySelectorAll('input,button').forEach(el=>el.disabled=true);show(msg,err.message,'error')})}form.addEventListener('submit',async(e)=>{e.preventDefault();clear(msg);const password=qs('#activate-password').value,confirm=qs('#activate-confirm').value;if(password!==confirm){show(msg,'The passwords do not match.','error');return}const button=form.querySelector('button');button.disabled=true;button.textContent='Activating…';try{const data=await api('/api/auth/activate',{method:'POST',body:JSON.stringify({invite:token,email:email.value,password})});show(msg,'Account activated. Redirecting…','success');location.href=data.redirect||'/portal.html'}catch(err){show(msg,err.message,'error');button.disabled=false;button.textContent='Activate account'}})}
 
-const loginForm=qs('#login-form');
-if(loginForm){
-  loginForm.addEventListener('submit',async(e)=>{
-    e.preventDefault();
-    const msg=qs('#login-message');clear(msg);
-    const button=loginForm.querySelector('button');button.disabled=true;button.textContent='Signing in…';
-    try{
-      const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({email:qs('#login-email').value,password:qs('#login-password').value})});
-      location.href=data.redirect||'/portal.html';
-    }catch(err){show(msg,err.message,'error');button.disabled=false;button.textContent='Sign in'}
-  });
-}
+const loginForm=qs('#login-form');if(loginForm){loginForm.addEventListener('submit',async(e)=>{e.preventDefault();const msg=qs('#login-message');clear(msg);const button=loginForm.querySelector('button');button.disabled=true;button.textContent='Signing in…';try{const data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({email:qs('#login-email').value,password:qs('#login-password').value})});location.href=data.redirect||'/portal.html'}catch(err){show(msg,err.message,'error');button.disabled=false;button.textContent='Sign in'}})}
 
-async function initPortal(){
-  const shell=qs('.portal-shell'); if(!shell) return;
-  try{
-    const [me,docsData,reqData]=await Promise.all([api('/api/me'),api('/api/documents'),api('/api/requests')]);
-    const welcome=qs('#portal-welcome'); if(welcome) welcome.textContent=me.name?`Welcome back, ${me.name.split(' ')[0]}`:'Welcome back';
-    const chip=qs('#client-chip'); if(chip) chip.textContent=me.email;
-    const accountEmail=qs('#account-email'); if(accountEmail) accountEmail.textContent=me.email;
-    const accountName=qs('#account-name'); if(accountName) accountName.textContent=me.name||'Client';
-    renderDocuments(docsData.documents||[]);
-    renderRequests(reqData.requests||[]);
-  }catch(err){
-    if(/Authentication required/i.test(err.message)){location.href='/login.html';return}
-    const notice=qs('#portal-notice'); if(notice) show(notice,err.message,'error');
-  }
-}
-
-function renderDocuments(docs){
-  const list=qs('#documents-list'); if(!list)return;
-  const metric=qs('#documents-count'); if(metric)metric.textContent=String(docs.length);
-  if(!docs.length){list.innerHTML='<div class="empty-card">No documents have been added to your portal yet.</div>';return}
-  list.innerHTML=docs.map(d=>`<div class="doc-row"><div><strong>${esc(d.title)}</strong><br><small>${esc(d.category||'Document')} · ${esc(fileType(d.mime_type))}</small></div><small>${fmtDate(d.created_at)}</small><span class="status">Available</span><a class="login-link" href="/api/documents/${encodeURIComponent(d.id)}/download">Download</a></div>`).join('');
-}
-
-function renderRequests(reqs){
-  const list=qs('#requests-list'); if(!list)return;
-  const open=reqs.filter(r=>!['completed','declined'].includes(r.status));
-  const metric=qs('#requests-count'); if(metric)metric.textContent=String(open.length);
-  if(!reqs.length){list.innerHTML='<div class="empty-card">No document requests yet.</div>';return}
-  list.innerHTML=reqs.map(r=>`<div class="request-item"><div><strong>${esc(r.request_type)}</strong><small>${fmtDate(r.created_at)}</small></div><span class="status">${esc(statusLabel(r.status))}</span>${r.notes?`<p>${esc(r.notes)}</p>`:''}</div>`).join('');
-}
-
-const requestForm=qs('#document-request-form');
-if(requestForm){
-  requestForm.addEventListener('submit',async(e)=>{
-    e.preventDefault();
-    const msg=qs('#request-message');clear(msg);
-    const button=requestForm.querySelector('button');button.disabled=true;button.textContent='Submitting…';
-    try{
-      await api('/api/requests',{method:'POST',body:JSON.stringify({requestType:qs('#request-type').value,notes:qs('#request-notes').value})});
-      show(msg,'Your request has been submitted to the Sovereignty Global account team.','success');
-      requestForm.reset();
-      const data=await api('/api/requests');renderRequests(data.requests||[]);
-    }catch(err){show(msg,err.message,'error')}finally{button.disabled=false;button.textContent='Submit request'}
-  });
-}
-
-qsa('[data-action="logout"]').forEach(el=>el.addEventListener('click',async e=>{
-  e.preventDefault();
-  try{await api('/api/auth/logout',{method:'POST'})}finally{location.href='/login.html'}
-}));
-
-function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
-function fmtDate(v){try{return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(v))}catch{return ''}}
-function fileType(m){if(!m)return'FILE';if(m.includes('pdf'))return'PDF';if(m.includes('word'))return'DOC';if(m.includes('image'))return'IMAGE';return'FILE'}
-function statusLabel(v){return({new:'New',in_progress:'In progress',completed:'Completed',declined:'Declined'})[v]||v||'New'}
-
+async function initPortal(){const shell=qs('.portal-shell');if(!shell)return;try{const[me,docsData,reqData]=await Promise.all([api('/api/me'),api('/api/documents'),api('/api/requests')]);const welcome=qs('#portal-welcome');if(welcome)welcome.textContent=me.name?`Welcome back, ${me.name.split(' ')[0]}`:'Welcome back';if(qs('#client-chip'))qs('#client-chip').textContent=me.email;if(qs('#account-email'))qs('#account-email').textContent=me.email;if(qs('#account-name'))qs('#account-name').textContent=me.name||'Client';const p=me.profile||{};setText('#profile-phone',p.phone);setText('#profile-nationality',p.nationality);setText('#profile-residence',p.country_of_residence);setText('#profile-tax',p.tax_residence);setText('#profile-reference',p.client_reference);setText('#profile-address',p.address);if(qs('#client-status'))qs('#client-status').textContent=statusTitle(p.onboarding_status||'active');renderDocuments(docsData.documents||[]);renderRequests(reqData.requests||[])}catch(err){if(/Authentication required/i.test(err.message)){location.href='/login.html';return}const notice=qs('#portal-notice');if(notice)show(notice,err.message,'error')}}
+function setText(selector,value){const el=qs(selector);if(el)el.textContent=value||'Not yet recorded'}
+function statusTitle(v){return String(v||'active').replace(/_/g,' ').replace(/^./,c=>c.toUpperCase())}
+function renderDocuments(docs){const list=qs('#documents-list');if(!list)return;const metric=qs('#documents-count');if(metric)metric.textContent=String(docs.length);if(!docs.length){list.innerHTML='<div class="empty-card">No documents have been added to your portal yet.</div>';return}list.innerHTML=docs.map(d=>`<div class="doc-row"><div><strong>${esc(d.title)}</strong><br><small>${esc(d.category||'Document')} · ${esc(fileType(d.mime_type))}</small></div><small>${fmtDate(d.created_at)}</small><span class="status">Available</span><a class="login-link" href="/api/documents/${encodeURIComponent(d.id)}/download">Download</a></div>`).join('')}
+function renderRequests(reqs){const list=qs('#requests-list');if(!list)return;const open=reqs.filter(r=>!['completed','declined'].includes(r.status));const metric=qs('#requests-count');if(metric)metric.textContent=String(open.length);if(!reqs.length){list.innerHTML='<div class="empty-card">No document requests yet.</div>';return}list.innerHTML=reqs.map(r=>`<div class="request-item"><div><strong>${esc(r.request_type)}</strong><small>${fmtDate(r.created_at)}</small></div><span class="status">${esc(statusLabel(r.status))}</span>${r.notes?`<p>${esc(r.notes)}</p>`:''}</div>`).join('')}
+const requestForm=qs('#document-request-form');if(requestForm){requestForm.addEventListener('submit',async(e)=>{e.preventDefault();const msg=qs('#request-message');clear(msg);const button=requestForm.querySelector('button');button.disabled=true;button.textContent='Submitting…';try{await api('/api/requests',{method:'POST',body:JSON.stringify({requestType:qs('#request-type').value,notes:qs('#request-notes').value})});show(msg,'Your request has been submitted to the Sovereignty Global account team.','success');requestForm.reset();const data=await api('/api/requests');renderRequests(data.requests||[])}catch(err){show(msg,err.message,'error')}finally{button.disabled=false;button.textContent='Submit request'}})}
+qsa('[data-action="logout"]').forEach(el=>el.addEventListener('click',async e=>{e.preventDefault();try{await api('/api/auth/logout',{method:'POST'})}finally{location.href='/login.html'}}));
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}function fmtDate(v){try{return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(v))}catch{return''}}function fileType(m){if(!m)return'FILE';if(m.includes('pdf'))return'PDF';if(m.includes('word'))return'DOC';if(m.includes('image'))return'IMAGE';return'FILE'}function statusLabel(v){return({new:'New',in_progress:'In progress',completed:'Completed',declined:'Declined'})[v]||v||'New'}
 initPortal();
