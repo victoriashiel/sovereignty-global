@@ -1,26 +1,15 @@
 .service-card .service-icon {
-  background-color: var(--green);
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 70% 70%;
+  background: linear-gradient(145deg, rgba(69,101,84,.94), rgba(47,74,60,.96));
   color: #fff;
 }
 
-/* Keep the Residency globe as a crisp vector so it does not distort at small sizes. */
-.service-card:nth-child(1) .service-icon {
-  background-image: none;
+.service-card .service-icon svg {
+  display: block;
+  opacity: 1 !important;
+  width: 29px;
+  height: 29px;
+  filter: drop-shadow(0 1px 8px rgba(255,255,255,.08));
 }
-.service-card:nth-child(1) .service-icon svg {
-  opacity: 1;
-  width: 30px;
-  height: 30px;
-}
-
-/* Use the supplied artwork for the remaining service icons. */
-.service-card:nth-child(n+2) .service-icon svg { opacity: 0; }
-.service-card:nth-child(2) .service-icon { background-image: url('assets/icons/banking.webp'); }
-.service-card:nth-child(3) .service-icon { background-image: url('assets/icons/tax.webp'); }
-.service-card:nth-child(4) .service-icon { background-image: url('assets/icons/mobility.webp'); }
 
 /* Longer master brand name needs a tighter wordmark treatment. */
 .brand {
