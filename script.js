@@ -1,3 +1,8 @@
+const iconStyles = document.createElement('link');
+iconStyles.rel = 'stylesheet';
+iconStyles.href = 'icons.css';
+document.head.appendChild(iconStyles);
+
 const navToggle = document.querySelector('.nav-toggle');
 const nav = document.querySelector('.primary-nav');
 
