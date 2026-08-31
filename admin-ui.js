@@ -21,20 +21,39 @@ $('#admin-connect')?.addEventListener('click',async()=>{
   try{await loadRequests();show(msg,'Admin connection verified for this browser session.','success')}catch(err){adminKey='';show(msg,err.message,'error')}
 });
 
+$('#staff-bootstrap-form')?.addEventListener('submit',async(e)=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  const msg=$('#staff-bootstrap-message');clear(msg);
+  const password=$('#staff-bootstrap-password').value;
+  const confirm=$('#staff-bootstrap-confirm').value;
+  if(password!==confirm){show(msg,'The passwords do not match.','error');return}
+  const button=form.querySelector('button');button.disabled=true;button.textContent='Creating staff login…';
+  try{
+    await adminApi('/api/admin/staff/bootstrap',{method:'POST',body:JSON.stringify({email:'legal@sovereigntyglobal.org',password})});
+    show(msg,'Staff login created. You can now use the employee portal.','success');
+    form.reset();
+  }catch(err){show(msg,err.message,'error')}finally{button.disabled=false;button.textContent='Create legal@ staff login'}
+});
+
 $('#invite-form')?.addEventListener('submit',async(e)=>{
-  e.preventDefault();const msg=$('#invite-message');clear(msg);$('#invite-result').innerHTML='';
+  e.preventDefault();
+  const form=e.currentTarget;
+  const msg=$('#invite-message');clear(msg);$('#invite-result').innerHTML='';
   try{
     const data=await adminApi('/api/admin/invitations',{method:'POST',body:JSON.stringify({clientName:$('#invite-name').value,email:$('#invite-email').value,validDays:Number($('#invite-days').value)})});
     show(msg,'Invitation created. Copy the private activation link below.','success');
     $('#invite-result').innerHTML=`<label>Activation link</label><div class="copy-row"><input value="${esc(data.activationUrl)}" readonly><button type="button" class="login-link" id="copy-invite">Copy</button></div><small>Expires ${fmtDate(data.expiresAt)}</small>`;
     $('#copy-invite').addEventListener('click',async()=>{await navigator.clipboard.writeText(data.activationUrl);$('#copy-invite').textContent='Copied'});
-    e.currentTarget.reset();
+    form.reset();
   }catch(err){show(msg,err.message,'error')}
 });
 
 $('#upload-form')?.addEventListener('submit',async(e)=>{
-  e.preventDefault();const msg=$('#upload-message');clear(msg);
-  const btn=e.currentTarget.querySelector('button');btn.disabled=true;btn.textContent='Uploading…';
+  e.preventDefault();
+  const form=e.currentTarget;
+  const msg=$('#upload-message');clear(msg);
+  const btn=form.querySelector('button');btn.disabled=true;btn.textContent='Uploading…';
   try{
     const fd=new FormData();
     fd.append('email',$('#upload-email').value);
@@ -42,7 +61,7 @@ $('#upload-form')?.addEventListener('submit',async(e)=>{
     fd.append('category',$('#upload-category').value);
     fd.append('file',$('#upload-file').files[0]);
     await adminApi('/api/admin/documents',{method:'POST',body:fd});
-    show(msg,'Document uploaded to the client portal.','success');e.currentTarget.reset();
+    show(msg,'Document uploaded to the client portal.','success');form.reset();
   }catch(err){show(msg,err.message,'error')}finally{btn.disabled=false;btn.textContent='Upload to client portal'}
 });
 
