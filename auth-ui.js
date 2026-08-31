@@ -1,3 +1,4 @@
+const brandStyles=document.createElement('link');brandStyles.rel='stylesheet';brandStyles.href='brand-logo.css';document.head.appendChild(brandStyles);
 const qs=(s)=>document.querySelector(s);
 const qsa=(s)=>[...document.querySelectorAll(s)];
 const show=(el,text,type='info')=>{if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.add('is-visible')};
