@@ -3,7 +3,10 @@
   "private": true,
   "scripts": {
     "deploy": "wrangler deploy",
-    "dev": "wrangler dev"
+    "dev": "wrangler dev",
+    "db:create": "wrangler d1 create sovereignty-global-clients",
+    "db:schema": "wrangler d1 execute sovereignty-global-clients --remote --file=schema.sql",
+    "files:create": "wrangler r2 bucket create sovereignty-global-client-files"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
