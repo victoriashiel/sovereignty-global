@@ -8,4 +8,22 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   }
+
+  // CLIENT PORTAL BINDINGS
+  // Create the resources in Cloudflare first, then uncomment these blocks and
+  // replace the D1 database_id with the ID Cloudflare gives you.
+  //
+  // "d1_databases": [
+  //   {
+  //     "binding": "DB",
+  //     "database_name": "sovereignty-global-clients",
+  //     "database_id": "YOUR_D1_DATABASE_ID"
+  //   }
+  // ],
+  // "r2_buckets": [
+  //   {
+  //     "binding": "CLIENT_FILES",
+  //     "bucket_name": "sovereignty-global-client-files"
+  //   }
+  // ]
 }
