@@ -14,14 +14,11 @@
       "database_name": "sovereignty-global-clients",
       "database_id": "40f8e9ca-4316-468b-bed3-b7fb6954ef2c"
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "CLIENT_FILES",
+      "bucket_name": "sovereignty-global-client-files"
+    }
   ]
-
-  // R2 CLIENT DOCUMENT BINDING
-  // Enable R2 in Cloudflare and create the bucket first, then add:
-  // "r2_buckets": [
-  //   {
-  //     "binding": "CLIENT_FILES",
-  //     "bucket_name": "sovereignty-global-client-files"
-  //   }
-  // ]
 }
