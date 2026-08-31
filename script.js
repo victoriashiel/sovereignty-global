@@ -1,31 +1,23 @@
-const iconStyles = document.createElement('link');
-iconStyles.rel = 'stylesheet';
-iconStyles.href = 'icons.css';
-document.head.appendChild(iconStyles);
+const brandStyles = document.createElement('link');
+brandStyles.rel = 'stylesheet';
+brandStyles.href = 'brand-logo.css';
+document.head.appendChild(brandStyles);
 
 (async () => {
+  const heroVisual = document.querySelector('.hero-visual');
+  if (!heroVisual) return;
   try {
-    const response = await fetch('assets/hero-banner.b64', { cache: 'force-cache' });
+    const response = await fetch('assets/hero-banner.b64', { cache: 'no-cache' });
     if (!response.ok) throw new Error(`Hero asset request failed: ${response.status}`);
-    const encoded = (await response.text()).trim();
-    const binary = atob(encoded);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-    const objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
-    document.documentElement.style.setProperty('--hero-runtime-image', `url("${objectUrl}")`);
+    const encoded = (await response.text()).replace(/\s+/g, '');
+    if (!encoded) throw new Error('Hero asset was empty.');
+    const imageUrl = `data:image/jpeg;base64,${encoded}`;
+    heroVisual.style.backgroundImage = `linear-gradient(90deg,rgba(23,35,60,.72) 0%,rgba(23,35,60,.42) 16%,rgba(23,35,60,.12) 34%,rgba(23,35,60,0) 50%),url("${imageUrl}")`;
     document.documentElement.classList.add('hero-image-ready');
   } catch (error) {
     console.error('Unable to load homepage hero image.', error);
   }
 })();
-
-const runtimeStyles = document.createElement('style');
-runtimeStyles.textContent = `
-.hero-image-ready .hero::before{background-image:linear-gradient(90deg,#17233C 0%,#17233C 30%,rgba(23,35,60,.98) 36%,rgba(23,35,60,.90) 43%,rgba(23,35,60,.68) 50%,rgba(23,35,60,.40) 57%,rgba(23,35,60,.16) 64%,rgba(23,35,60,0) 74%),var(--hero-runtime-image)!important;background-size:cover!important;background-position:center right!important;background-repeat:no-repeat!important}
-@media(max-width:1100px){.hero-image-ready .hero::before{background-image:linear-gradient(90deg,#17233C 0%,rgba(23,35,60,.98) 34%,rgba(23,35,60,.80) 48%,rgba(23,35,60,.34) 62%,rgba(23,35,60,.04) 78%),var(--hero-runtime-image)!important}.nav-toggle{display:flex!important;width:42px;height:42px;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:transparent;align-items:center;justify-content:center;flex-direction:column;gap:4px;cursor:pointer}.nav-toggle>span:not(.sr-only){display:block;width:16px;height:1px;background:#fff}.primary-nav.is-open{display:flex!important;position:absolute;left:3vw;right:3vw;top:72px;padding:18px;flex-direction:column;align-items:flex-start;gap:0;background:#101a2d;border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:0 22px 55px rgba(0,0,0,.3)}.primary-nav.is-open a{width:100%;padding:12px 8px}}
-@media(max-width:820px){.hero-image-ready .hero::before{background-image:linear-gradient(180deg,rgba(23,35,60,1) 0%,rgba(23,35,60,.98) 34%,rgba(23,35,60,.86) 52%,rgba(23,35,60,.50) 72%,rgba(23,35,60,.20) 100%),var(--hero-runtime-image)!important;background-position:64% center!important}}
-`;
-document.head.appendChild(runtimeStyles);
 
 const nav = document.querySelector('.primary-nav');
 let navToggle = document.querySelector('.nav-toggle');
