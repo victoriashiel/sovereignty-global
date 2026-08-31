@@ -1,0 +1,1 @@
+Hero media assets for the website.
