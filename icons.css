@@ -1,0 +1,11 @@
+.service-card .service-icon {
+  background-color: var(--green);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 70% 70%;
+}
+.service-card .service-icon svg { opacity: 0; }
+.service-card:nth-child(1) .service-icon { background-image: url('assets/icons/residency.webp'); }
+.service-card:nth-child(2) .service-icon { background-image: url('assets/icons/banking.webp'); }
+.service-card:nth-child(3) .service-icon { background-image: url('assets/icons/tax.webp'); }
+.service-card:nth-child(4) .service-icon { background-image: url('assets/icons/mobility.webp'); }
