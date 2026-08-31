@@ -3,9 +3,35 @@
   background-repeat: no-repeat;
   background-position: center;
   background-size: 70% 70%;
+  color: #fff;
 }
-.service-card .service-icon svg { opacity: 0; }
-.service-card:nth-child(1) .service-icon { background-image: url('assets/icons/residency.webp'); }
+
+/* Keep the Residency globe as a crisp vector so it does not distort at small sizes. */
+.service-card:nth-child(1) .service-icon {
+  background-image: none;
+}
+.service-card:nth-child(1) .service-icon svg {
+  opacity: 1;
+  width: 30px;
+  height: 30px;
+}
+
+/* Use the supplied artwork for the remaining service icons. */
+.service-card:nth-child(n+2) .service-icon svg { opacity: 0; }
 .service-card:nth-child(2) .service-icon { background-image: url('assets/icons/banking.webp'); }
 .service-card:nth-child(3) .service-icon { background-image: url('assets/icons/tax.webp'); }
 .service-card:nth-child(4) .service-icon { background-image: url('assets/icons/mobility.webp'); }
+
+/* Longer master brand name needs a tighter wordmark treatment. */
+.brand {
+  letter-spacing: .07em;
+  font-size: clamp(1.15rem, 1.8vw, 1.95rem);
+  white-space: nowrap;
+}
+
+@media (max-width: 820px) {
+  .brand {
+    font-size: 1.15rem;
+    letter-spacing: .045em;
+  }
+}
