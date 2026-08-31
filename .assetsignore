@@ -1,9 +1,14 @@
 **/node_modules
 **/.git
+**/.wrangler
 **/.DS_Store
 src/
 package.json
+package-lock.json
 bun.lock
 bun.lockb
 wrangler.jsonc
+schema.sql
+CLIENT_PORTAL_SETUP.md
 README.md
+.assetsignore
