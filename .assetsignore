@@ -1,0 +1,10 @@
+**/node_modules
+**/.git
+**/.DS_Store
+src/
+package.json
+bun.lock
+bun.lockb
+wrangler.jsonc
+README.md
+assets/
