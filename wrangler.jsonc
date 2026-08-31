@@ -7,19 +7,17 @@
     "directory": ".",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sovereignty-global-clients",
+      "database_id": "40f8e9ca-4316-468b-bed3-b7fb6954ef2c"
+    }
+  ]
 
-  // CLIENT PORTAL BINDINGS
-  // Create the resources in Cloudflare first, then uncomment these blocks and
-  // replace the D1 database_id with the ID Cloudflare gives you.
-  //
-  // "d1_databases": [
-  //   {
-  //     "binding": "DB",
-  //     "database_name": "sovereignty-global-clients",
-  //     "database_id": "YOUR_D1_DATABASE_ID"
-  //   }
-  // ],
+  // R2 CLIENT DOCUMENT BINDING
+  // Enable R2 in Cloudflare and create the bucket first, then add:
   // "r2_buckets": [
   //   {
   //     "binding": "CLIENT_FILES",
