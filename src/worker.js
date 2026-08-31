@@ -3,7 +3,7 @@ const SESSION_COOKIE = 'sg_session';
 const STAFF_SESSION_COOKIE = 'sg_staff_session';
 const SESSION_SECONDS = 60 * 60 * 24 * 7;
 const STAFF_SESSION_SECONDS = 60 * 60 * 12;
-const PASSWORD_ITERATIONS = 150000;
+const PASSWORD_ITERATIONS = 100000;
 
 export default {
   async fetch(request, env) {
