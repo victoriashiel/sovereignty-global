@@ -12,6 +12,7 @@ bun.lock
 bun.lockb
 wrangler.jsonc
 schema.sql
+*.sql
 CLIENT_PORTAL_SETUP.md
 README.md
 .assetsignore
