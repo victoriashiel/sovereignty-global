@@ -8,8 +8,12 @@
     "db:schema": "wrangler d1 execute sovereignty-global-clients --remote --file=schema.sql",
     "db:migrate": "wrangler d1 migrations apply sovereignty-global-clients --remote",
     "files:create": "wrangler r2 bucket create sovereignty-global-client-files",
+    "queue:create": "wrangler queues create sovereignty-global-operations",
+    "queue:dlq:create": "wrangler queues create sovereignty-global-operations-dlq",
+    "queue:list": "wrangler queues list",
+    "workflow:list": "wrangler workflows list",
     "logs": "wrangler tail",
-    "check": "node --check src/index.js && node --check src/worker.js && node --check auth-ui.js && node --check staff-ui.js",
+    "check": "node --check src/index.js && node --check src/worker.js && node --check src/onboarding-workflow.js && node --check auth-ui.js && node --check staff-ui.js",
     "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {
