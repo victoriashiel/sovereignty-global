@@ -14,6 +14,30 @@
   "triggers": {
     "crons": ["17 3 * * *"]
   },
+  "queues": {
+    "producers": [
+      {
+        "binding": "OPERATIONS_QUEUE",
+        "queue": "sovereignty-global-operations"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "sovereignty-global-operations",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 5,
+        "dead_letter_queue": "sovereignty-global-operations-dlq"
+      }
+    ]
+  },
+  "workflows": [
+    {
+      "name": "sovereignty-global-client-onboarding",
+      "binding": "ONBOARDING_WORKFLOW",
+      "class_name": "ClientOnboardingWorkflow"
+    }
+  ],
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
