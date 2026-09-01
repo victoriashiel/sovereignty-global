@@ -1,6 +1,6 @@
 -- Apply to databases created by the legacy schema before deploying this release.
--- SQLite cannot add foreign keys/check constraints in place; export/rebuild legacy
--- tables using schema.sql in a maintenance window, then preserve the data.
+-- SQLite cannot enforce newly added foreign keys/check constraints in place;
+-- export/rebuild legacy tables using schema.sql in a maintenance window.
 ALTER TABLE documents ADD COLUMN linked_request_id TEXT REFERENCES document_requests(id) ON DELETE SET NULL;
 ALTER TABLE documents ADD COLUMN object_status TEXT NOT NULL DEFAULT 'available' CHECK(object_status IN ('pending','available','failed'));
 ALTER TABLE staff_users ADD COLUMN role TEXT NOT NULL DEFAULT 'operator' CHECK(role IN ('manager','operator','viewer'));

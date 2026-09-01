@@ -17,6 +17,7 @@ npx wrangler d1 execute sovereignty-global-clients --remote --file=migrations/00
 Do **not** expose `/staff.html` or `/api/staff/*` publicly. Before deployment, create a Cloudflare Access application covering both paths and require the organisation identity provider with MFA. The Worker accepts staff requests only when Access supplies both `Cf-Access-Authenticated-User-Email` and `Cf-Access-Jwt-Assertion`; configure Access so these headers cannot be supplied by an untrusted origin.
 
 Set the non-secret Worker variables `ACCESS_TEAM_DOMAIN` (for example, `team.cloudflareaccess.com`) and `STAFF_ACCESS_AUD` (the Access application audience). The Worker verifies the Access JWT against the team JWKS, issuer, audience, expiry, and employee email before authorising staff API access.
+Restrict or disable the Workers.dev route and any other origin that could bypass the Access application.
 
 Provision each authorised employee as a separate `staff_users` record with a unique email, an `active` status, and the least-privileged role:
 
