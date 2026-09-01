@@ -1,0 +1,38 @@
+/* Shared liquid glass treatment for card-like surfaces */
+.auth-card,
+.portal-card,
+.request-item,
+.doc-row,
+.admin-request {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgba(255,255,255,.13), rgba(255,255,255,.035) 42%, rgba(137,167,118,.045));
+  border: 1px solid rgba(255,255,255,.21);
+  box-shadow: 0 26px 70px rgba(1,7,18,.28), 0 5px 18px rgba(0,0,0,.16), inset 0 1.5px 0 rgba(255,255,255,.30), inset 0 -1px 0 rgba(255,255,255,.05);
+  backdrop-filter: blur(32px) saturate(145%) contrast(105%);
+  -webkit-backdrop-filter: blur(32px) saturate(145%) contrast(105%);
+}
+
+.auth-card::before,
+.portal-card::before,
+.request-item::before,
+.doc-row::before,
+.admin-request::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 15%, rgba(255,255,255,.24), rgba(255,255,255,.07) 24%, transparent 48%), linear-gradient(115deg, rgba(255,255,255,.16), transparent 28%, transparent 72%, rgba(137,167,118,.07));
+  opacity: .88;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.auth-card > *,
+.portal-card > *,
+.request-item > *,
+.doc-row > *,
+.admin-request > * {
+  position: relative;
+  z-index: 1;
+}
