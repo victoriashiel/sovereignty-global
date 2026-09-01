@@ -3,6 +3,13 @@
   "name": "sovereignty-global",
   "main": "src/worker.js",
   "compatibility_date": "2026-08-31",
+  "observability": {
+    "enabled": false,
+    "logs": {
+      "enabled": false,
+      "invocation_logs": true
+    }
+  },
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
