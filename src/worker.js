@@ -6,6 +6,7 @@ const STAFF_SESSION_SECONDS = 60 * 60 * 12;
 const PASSWORD_ITERATIONS = 150000;
 const REQUEST_TYPES = new Set(['Updated strategy summary','Proof / confirmation letter','Banking document','Residency document','Tax document','Signed paperwork','Other']);
 const ALLOWED_DOCUMENT_TYPES = new Map([['application/pdf', '.pdf']]);
+let accessJwksCache;
 
 export default {
   async fetch(request, env) {
@@ -52,14 +53,6 @@ async function handleApi(request, env, url) {
   if (pathname === '/api/auth/login' && request.method === 'POST') {
     const body=await readJson(request), email=normalizeEmail(body.email), password=String(body.password||'');
     if(email==='legal@sovereigntyglobal.org') return json({error:'Staff access requires the organisation identity provider.'},403);
-    if(false && email==='legal@sovereigntyglobal.org'){
-      const staff=await env.DB.prepare('SELECT * FROM staff_users WHERE email=? AND status=?').bind(email,'active').first();
-      if(!staff)return json({error:'Email or password is incorrect.'},401);
-      const staffCandidate=await hashPassword(password,staff.password_salt,staff.password_iterations||PASSWORD_ITERATIONS);
-      if(!constantTimeEqual(staffCandidate,staff.password_hash))return json({error:'Email or password is incorrect.'},401);
-      const staffSession=await createStaffSession(env.DB,staff.id);
-      return json({ok:true,redirect:'/staff.html',accountType:'staff'},200,{ 'Set-Cookie':staffSessionCookie(staffSession.token) });
-    }
     if(await isRateLimited(request,env.DB,email)) return json({error:'Too many sign-in attempts. Try again later.'},429);
     const user=await env.DB.prepare('SELECT * FROM users WHERE email=? AND status=?').bind(email,'active').first();
     if (!user) { await recordFailedLogin(request,env.DB,email); return json({ error:'Email or password is incorrect.' },401); }
@@ -141,7 +134,7 @@ async function handleAdmin(request,env,url){
 }
 
 async function handleStaff(request,env,url){
-  const staff=await requireStaff(request,env.DB);if(!staff)return json({error:'Staff authentication required through Cloudflare Access.'},401);
+  const staff=await requireStaff(request,env.DB,env);if(!staff)return json({error:'Staff authentication required through Cloudflare Access.'},401);
   const {pathname}=url;
   if(pathname==='/api/staff/me'&&request.method==='GET')return json({id:staff.id,email:staff.email,name:staff.name});
   if(pathname==='/api/staff/clients'&&request.method==='GET'){
@@ -268,12 +261,13 @@ async function listRequests(db){
 async function updateRequestStatus(request,db,id){
   const body=await readJson(request),status=String(body.status||''),allowed=new Set(['new','in_progress','completed','declined']);
   if(!allowed.has(status))return json({error:'Invalid request status.'},400);
-  await db.prepare('UPDATE document_requests SET status=?,updated_at=? WHERE id=?').bind(status,new Date().toISOString(),id).run();
+  const result=await db.prepare('UPDATE document_requests SET status=?,updated_at=? WHERE id=?').bind(status,new Date().toISOString(),id).run();
+  if(!result.meta.changes)return json({error:'Request not found.'},404);
   return json({ok:true,status});
 }
 
-async function requireUser(request,db){const raw=getCookie(request,SESSION_COOKIE);if(!raw)return null;const hash=await sha256(raw),row=await db.prepare('SELECT u.*,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=?').bind(hash).first();if(!row)return null;if(Date.parse(row.expires_at)<=Date.now()){await db.prepare('DELETE FROM sessions WHERE token_hash=?').bind(hash).run();return null}return row}
-async function requireStaff(request,db){const email=normalizeEmail(request.headers.get('Cf-Access-Authenticated-User-Email'));if(!email||!request.headers.get('Cf-Access-Jwt-Assertion'))return null;return db.prepare("SELECT * FROM staff_users WHERE email=? AND status='active'").bind(email).first()}
+async function requireUser(request,db){const raw=getCookie(request,SESSION_COOKIE);if(!raw)return null;const hash=await sha256(raw),row=await db.prepare("SELECT u.*,s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND u.status='active'").bind(hash).first();if(!row)return null;if(Date.parse(row.expires_at)<=Date.now()){await db.prepare('DELETE FROM sessions WHERE token_hash=?').bind(hash).run();return null}return row}
+async function requireStaff(request,db,env){const email=normalizeEmail(request.headers.get('Cf-Access-Authenticated-User-Email'));if(!email||!await verifyAccessToken(request.headers.get('Cf-Access-Jwt-Assertion'),email,env))return null;return db.prepare("SELECT * FROM staff_users WHERE email=? AND status='active'").bind(email).first()}
 async function createSession(db,userId){const token=randomToken(32),hash=await sha256(token),now=new Date().toISOString(),expires=new Date(Date.now()+SESSION_SECONDS*1000).toISOString();await db.prepare('INSERT INTO sessions (token_hash,user_id,expires_at,created_at) VALUES (?,?,?,?)').bind(hash,userId,expires,now).run();await db.prepare('DELETE FROM sessions WHERE expires_at<?').bind(now).run();return{token,expiresAt:expires}}
 async function createStaffSession(db,staffId){const token=randomToken(32),hash=await sha256(token),now=new Date().toISOString(),expires=new Date(Date.now()+STAFF_SESSION_SECONDS*1000).toISOString();await db.prepare('INSERT INTO staff_sessions (token_hash,staff_user_id,expires_at,created_at) VALUES (?,?,?,?)').bind(hash,staffId,expires,now).run();await db.prepare('DELETE FROM staff_sessions WHERE expires_at<?').bind(now).run();return{token,expiresAt:expires}}
 async function getValidInvite(db,raw){if(!raw)return null;const hash=await sha256(raw),row=await db.prepare('SELECT * FROM invitations WHERE token_hash=? AND used_at IS NULL').bind(hash).first();if(!row||Date.parse(row.expires_at)<=Date.now())return null;return row}
@@ -318,4 +312,5 @@ async function isRateLimited(request,db,email){const row=await db.prepare('SELEC
 async function recordFailedLogin(request,db,email){const subject=await loginSubject(request,email),now=new Date().toISOString(),row=await db.prepare('SELECT count,window_started_at FROM login_failures WHERE subject_hash=?').bind(subject).first(),count=!row||Date.now()-Date.parse(row.window_started_at)>=900000?1:row.count+1;await db.prepare('INSERT INTO login_failures(subject_hash,count,window_started_at,updated_at) VALUES(?,?,?,?) ON CONFLICT(subject_hash) DO UPDATE SET count=excluded.count,window_started_at=excluded.window_started_at,updated_at=excluded.updated_at').bind(subject,count,count===1?now:row.window_started_at,now).run()}
 async function clearFailedLogins(request,db,email){await db.prepare('DELETE FROM login_failures WHERE subject_hash=?').bind(await loginSubject(request,email)).run()}
 async function audit(db,staffId,action,targetType,targetId,metadata){await db.prepare('INSERT INTO audit_events(id,actor_staff_id,action,target_type,target_id,metadata,created_at) VALUES(?,?,?,?,?,?,?)').bind(crypto.randomUUID(),staffId,action,targetType,targetId,JSON.stringify(metadata),new Date().toISOString()).run()}
+async function verifyAccessToken(token,email,env){try{if(!token||!env.ACCESS_TEAM_DOMAIN||!env.STAFF_ACCESS_AUD)return false;const [encodedHeader,encodedClaims,encodedSignature]=token.split('.');if(!encodedSignature)return false;const header=JSON.parse(new TextDecoder().decode(base64UrlToBytes(encodedHeader))),claims=JSON.parse(new TextDecoder().decode(base64UrlToBytes(encodedClaims)));if(header.alg!=='RS256'||!header.kid||claims.email!==email||claims.iss!==`https://${env.ACCESS_TEAM_DOMAIN}`||claims.exp<=Math.floor(Date.now()/1000)||!(Array.isArray(claims.aud)?claims.aud:[claims.aud]).includes(env.STAFF_ACCESS_AUD))return false;const now=Date.now(),jwks=accessJwksCache&&accessJwksCache.expiresAt>now?accessJwksCache.keys:await fetch(`https://${env.ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`).then(r=>{if(!r.ok)throw new Error('Unable to load Access keys');return r.json()});if(jwks!==accessJwksCache?.keys)accessJwksCache={keys:jwks,expiresAt:now+3600000};const jwk=(jwks.keys||[]).find(key=>key.kid===header.kid);if(!jwk)return false;const key=await crypto.subtle.importKey('jwk',jwk,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['verify']);return crypto.subtle.verify({name:'RSASSA-PKCS1-v1_5'},key,base64UrlToBytes(encodedSignature),enc.encode(`${encodedHeader}.${encodedClaims}`))}catch{return false}}
 function withSecurityHeaders(response){const headers=new Headers(response.headers);headers.set('Content-Security-Policy',"default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; img-src 'self' data: https://images.unsplash.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self'");headers.set('X-Frame-Options','DENY');headers.set('Referrer-Policy','same-origin');headers.set('Permissions-Policy','camera=(), geolocation=(), microphone=(), payment=(), usb=()');headers.set('Strict-Transport-Security','max-age=31536000; includeSubDomains');headers.set('X-Content-Type-Options','nosniff');return new Response(response.body,{status:response.status,statusText:response.statusText,headers})}

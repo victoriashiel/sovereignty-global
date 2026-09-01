@@ -14,3 +14,4 @@ CREATE TABLE IF NOT EXISTS login_failures (
 CREATE INDEX IF NOT EXISTS idx_documents_user_available ON documents(user_id, object_status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_requests_user_created ON document_requests(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_documents_request ON documents(linked_request_id);
+CREATE INDEX IF NOT EXISTS idx_audit_events_created ON audit_events(created_at DESC);

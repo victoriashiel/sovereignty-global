@@ -1,7 +1,7 @@
 const brandStyles=document.createElement('link');brandStyles.rel='stylesheet';brandStyles.href='brand-logo.css';document.head.appendChild(brandStyles);
 const qs=(s)=>document.querySelector(s);
 const qsa=(s)=>[...document.querySelectorAll(s)];
-const show=(el,text,type='info')=>{if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.add('is-visible')};
+const show=(el,text,type='info')=>{if(!el)return;el.setAttribute('role',type==='error'?'alert':'status');el.setAttribute('aria-live','polite');el.textContent=text;el.dataset.type=type;el.classList.add('is-visible')};
 const clear=(el)=>{if(!el)return;el.textContent='';el.classList.remove('is-visible')};
 const api=async(path,options={})=>{const headers={...(options.headers||{})};if(options.body&&!(options.body instanceof FormData)&&!headers['Content-Type'])headers['Content-Type']='application/json';const res=await fetch(path,{credentials:'same-origin',...options,headers});let data={};try{data=await res.json()}catch{}if(!res.ok)throw new Error(data.error||`Request failed (${res.status})`);return data};
 
