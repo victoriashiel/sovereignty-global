@@ -1,8 +1,11 @@
 **/node_modules
 **/.git
+**/.github
 **/.wrangler
 **/.DS_Store
 src/
+migrations/
+test/
 package.json
 package-lock.json
 bun.lock
