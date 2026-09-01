@@ -46,6 +46,21 @@ CREATE TABLE audit_events (
 CREATE TABLE login_failures (
   subject_hash TEXT PRIMARY KEY, count INTEGER NOT NULL, window_started_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
+CREATE TABLE activity_events (
+  id TEXT PRIMARY KEY, event_type TEXT NOT NULL, user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  request_id TEXT, metadata TEXT, created_at TEXT NOT NULL
+);
+CREATE TABLE notification_outbox (
+  id TEXT PRIMARY KEY, event_id TEXT NOT NULL UNIQUE, kind TEXT NOT NULL,
+  severity TEXT NOT NULL CHECK(severity IN ('low','medium','high')), subject TEXT NOT NULL, body TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','sent','failed')), attempts INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, sent_at TEXT
+);
+CREATE TABLE onboarding_workflows (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, workflow_id TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL CHECK(status IN ('running','attention','completed','paused','closed')),
+  started_at TEXT NOT NULL, last_checked_at TEXT NOT NULL, completed_at TEXT
+);
 CREATE INDEX idx_documents_user_available ON documents(user_id, object_status, created_at DESC);
 CREATE INDEX idx_requests_user_created ON document_requests(user_id, created_at DESC);
 CREATE INDEX idx_documents_request ON documents(linked_request_id);
@@ -60,4 +75,10 @@ CREATE INDEX idx_requests_status_updated ON document_requests(status, updated_at
 CREATE INDEX idx_documents_status_created ON documents(object_status, created_at DESC);
 CREATE INDEX idx_login_failures_updated ON login_failures(updated_at);
 CREATE INDEX idx_audit_target_created ON audit_events(target_type, target_id, created_at DESC);
+CREATE INDEX idx_activity_events_type_created ON activity_events(event_type, created_at DESC);
+CREATE INDEX idx_activity_events_user_created ON activity_events(user_id, created_at DESC);
+CREATE INDEX idx_activity_events_request ON activity_events(request_id);
+CREATE INDEX idx_notification_outbox_status_created ON notification_outbox(status, created_at ASC);
+CREATE INDEX idx_notification_outbox_kind_created ON notification_outbox(kind, created_at DESC);
+CREATE INDEX idx_onboarding_workflows_status_checked ON onboarding_workflows(status, last_checked_at ASC);
 PRAGMA optimize;
