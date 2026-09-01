@@ -42,3 +42,10 @@ a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible,t
 @media(max-width:1080px){.services-dropdown summary:after{margin-left:auto}.primary-nav.is-open .services-dropdown summary:after{margin-left:auto}}
 @media(max-width:760px){.primary-nav.is-open{top:var(--sg-header-height);padding-left:20px;padding-right:20px}html:not(.js) .primary-nav{grid-column:1/-1;justify-content:flex-start;padding:0 20px 16px}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.services-dropdown summary:after{transition:none}}
+
+.service-card .service-icon{box-sizing:border-box;flex:0 0 46px;width:46px;height:46px;min-width:46px;min-height:46px;padding:8px;place-items:center;overflow:hidden}
+.service-card .service-icon img{display:block;width:30px!important;height:30px!important;min-width:30px;min-height:30px;max-width:30px;max-height:30px;object-fit:contain;object-position:center;image-rendering:auto}
+.service-card .service-icon img[src$="residency.webp"]{content:url("/assets/icons/residency.svg")}
+.service-card .service-icon img[src$="banking.webp"]{content:url("/assets/icons/banking.svg")}
+.service-card .service-icon img[src$="tax.webp"]{content:url("/assets/icons/tax.svg")}
+.service-card .service-icon img[src$="mobility.webp"]{content:url("/assets/icons/mobility.svg")}
