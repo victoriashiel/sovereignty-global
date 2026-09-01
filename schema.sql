@@ -33,7 +33,7 @@ CREATE TABLE document_requests (
 CREATE TABLE documents (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   title TEXT NOT NULL, category TEXT, r2_key TEXT NOT NULL UNIQUE, mime_type TEXT NOT NULL,
-  file_size INTEGER NOT NULL CHECK(file_size > 0), created_at TEXT NOT NULL,
+  file_size INTEGER NOT NULL CHECK(file_size >= 0), created_at TEXT NOT NULL,
   uploaded_by_staff_id TEXT REFERENCES staff_users(id) ON DELETE SET NULL,
   linked_request_id TEXT REFERENCES document_requests(id) ON DELETE SET NULL,
   object_status TEXT NOT NULL DEFAULT 'pending' CHECK(object_status IN ('pending','available','failed'))
