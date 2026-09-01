@@ -1,4 +1,6 @@
--- Apply to databases created by the legacy schema before deploying this release.
+-- Apply once, and only to databases created by the unmodified legacy schema.
+-- Do not retry after a partial/manual application: inspect PRAGMA table_info for
+-- each column first, then rebuild from schema.sql if any listed column exists.
 -- SQLite cannot enforce newly added foreign keys/check constraints in place;
 -- export/rebuild legacy tables using schema.sql in a maintenance window.
 ALTER TABLE documents ADD COLUMN linked_request_id TEXT REFERENCES document_requests(id) ON DELETE SET NULL;

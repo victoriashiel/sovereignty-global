@@ -9,7 +9,6 @@ CREATE TABLE users (
 CREATE TABLE staff_users (
   id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
   role TEXT NOT NULL CHECK(role IN ('manager','operator','viewer')),
-  password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, password_iterations INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','inactive')), created_at TEXT NOT NULL
 );
 CREATE TABLE invitations (

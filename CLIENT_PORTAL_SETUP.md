@@ -4,7 +4,7 @@
 
 Apply `schema.sql` only when creating a new D1 database. It is the canonical schema and includes foreign keys, deletion semantics, role support, audit events, and document object states.
 
-Existing legacy databases must first apply `migrations/0002_security_hardening.sql`. Schedule a maintenance window to rebuild legacy tables from `schema.sql` so that foreign-key and check constraints are enforced; SQLite cannot add those constraints in place.
+Existing legacy databases must first inspect their table columns before applying `migrations/0002_security_hardening.sql`; it is intentionally a one-time migration for the unmodified legacy schema and must not be retried after a partial/manual application. If `documents.linked_request_id`, `documents.object_status`, or `staff_users.role` already exists, rebuild from `schema.sql` in a maintenance window instead. SQLite cannot add the required foreign-key and check constraints in place.
 
 ```bash
 npx wrangler d1 execute sovereignty-global-clients --remote --file=schema.sql
@@ -26,6 +26,7 @@ Provision each authorised employee as a separate `staff_users` record with a uni
 - `manager`: employee lifecycle and destructive operations
 
 The legacy browser `ADMIN_API_KEY` interface has been removed. Never put a Worker secret in a browser.
+Seed the first `manager` during the controlled database migration. Thereafter, managers use `POST /api/staff/team` to provision individual staff records after the identity has been approved in Cloudflare Access. Deactivating a record immediately prevents API access.
 
 ## Documents and client access
 

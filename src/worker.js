@@ -69,6 +69,7 @@ async function handleApi(request, env, url) {
   }
 
   if (pathname === '/api/staff/auth/login' && request.method === 'POST') {
+    return json({error:'Staff password authentication has been removed. Sign in through Cloudflare Access.'},410);
     const body=await readJson(request), email=normalizeEmail(body.email), password=String(body.password||'');
     const staff=await env.DB.prepare('SELECT * FROM staff_users WHERE email=? AND status=?').bind(email,'active').first();
     if(!staff) return json({error:'Email or password is incorrect.'},401);
@@ -78,6 +79,7 @@ async function handleApi(request, env, url) {
     return json({ok:true,redirect:'/staff.html'},200,{ 'Set-Cookie':staffSessionCookie(session.token) });
   }
   if (pathname === '/api/staff/auth/logout' && request.method === 'POST') {
+    return json({ok:true});
     const token=getCookie(request,STAFF_SESSION_COOKIE); if(token) await env.DB.prepare('DELETE FROM staff_sessions WHERE token_hash=?').bind(await sha256(token)).run();
     return json({ok:true},200,{ 'Set-Cookie':clearCookie(STAFF_SESSION_COOKIE) });
   }
@@ -136,7 +138,9 @@ async function handleAdmin(request,env,url){
 async function handleStaff(request,env,url){
   const staff=await requireStaff(request,env.DB,env);if(!staff)return json({error:'Staff authentication required through Cloudflare Access.'},401);
   const {pathname}=url;
-  if(pathname==='/api/staff/me'&&request.method==='GET')return json({id:staff.id,email:staff.email,name:staff.name});
+  if(pathname==='/api/staff/me'&&request.method==='GET')return json({id:staff.id,email:staff.email,name:staff.name,role:staff.role});
+  if(pathname==='/api/staff/team'&&request.method==='GET'){if(staff.role!=='manager')return json({error:'Manager role required.'},403);const result=await env.DB.prepare('SELECT id,email,name,role,status,created_at FROM staff_users ORDER BY created_at DESC LIMIT 100').all();return json({staff:result.results||[]});}
+  if(pathname==='/api/staff/team'&&request.method==='POST'){if(staff.role!=='manager')return json({error:'Manager role required.'},403);const body=await readJson(request),email=normalizeEmail(body.email),name=clean(body.name,200),role=['manager','operator','viewer'].includes(body.role)?body.role:'';if(!email||!name||!role)return json({error:'Name, email, and valid role are required.'},400);const id=crypto.randomUUID(),now=new Date().toISOString();try{await env.DB.prepare("INSERT INTO staff_users(id,email,name,role,status,created_at) VALUES(?,?,?,?, 'active',?)").bind(id,email,name,role,now).run()}catch{return json({error:'A staff account already exists for this email.'},409)}await audit(env.DB,staff.id,'staff.provisioned','staff_user',id,{email,role});return json({id,email,name,role},201);}
   if(pathname==='/api/staff/clients'&&request.method==='GET'){
     const r=await env.DB.prepare(`SELECT u.id,u.email,u.name,u.status,u.created_at,u.activated_at,COALESCE(p.onboarding_status,'active') onboarding_status,(SELECT COUNT(*) FROM documents d WHERE d.user_id=u.id) document_count,(SELECT COUNT(*) FROM document_requests q WHERE q.user_id=u.id AND q.status NOT IN ('completed','declined')) open_request_count FROM users u LEFT JOIN client_profiles p ON p.user_id=u.id ORDER BY u.created_at DESC`).all();
     return json({clients:r.results||[]});
@@ -159,6 +163,7 @@ async function handleStaff(request,env,url){
     const body=await readJson(request),now=new Date().toISOString();
     const fields={phone:clean(body.phone,80),nationality:clean(body.nationality,120),country_of_residence:clean(body.countryOfResidence,120),tax_residence:clean(body.taxResidence,120),client_reference:clean(body.clientReference,120),address:clean(body.address,1000),onboarding_status:['active','onboarding','paused'].includes(body.onboardingStatus)?body.onboardingStatus:'active'};
     await env.DB.prepare(`INSERT INTO client_profiles (user_id,phone,nationality,country_of_residence,tax_residence,client_reference,address,onboarding_status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET phone=excluded.phone,nationality=excluded.nationality,country_of_residence=excluded.country_of_residence,tax_residence=excluded.tax_residence,client_reference=excluded.client_reference,address=excluded.address,onboarding_status=excluded.onboarding_status,updated_at=excluded.updated_at`).bind(pm[1],fields.phone,fields.nationality,fields.country_of_residence,fields.tax_residence,fields.client_reference,fields.address,fields.onboarding_status,now,now).run();
+    await audit(env.DB,staff.id,'client.profile_updated','user',pm[1],{});
     return json({ok:true});
   }
 
@@ -173,7 +178,7 @@ async function handleStaff(request,env,url){
   const fulfil=pathname.match(/^\/api\/staff\/requests\/([^/]+)\/fulfil$/);
   if(fulfil&&request.method==='POST'){if(!['manager','operator'].includes(staff.role))return json({error:'Operator role required.'},403);return fulfilRequest(request,env,staff.id,fulfil[1]);}
   const rm=pathname.match(/^\/api\/staff\/requests\/([^/]+)$/);
-  if(rm&&request.method==='PATCH'){if(!['manager','operator'].includes(staff.role))return json({error:'Operator role required.'},403);return updateRequestStatus(request,env.DB,rm[1]);}
+  if(rm&&request.method==='PATCH'){if(!['manager','operator'].includes(staff.role))return json({error:'Operator role required.'},403);return updateRequestStatus(request,env.DB,rm[1],staff.id);}
   return json({error:'Staff route not found.'},404);
 }
 
@@ -189,6 +194,7 @@ async function createInvitation(request,db,origin,staffId=null){
 
 async function uploadDocument(request,env,staffId,forcedClientId='',linkedRequestId=''){
   if(!env.CLIENT_FILES)return json({error:'R2 document storage is not bound yet.'},503);
+  const contentLength=Number(request.headers.get('Content-Length')||0);if(contentLength>26*1024*1024)return json({error:'Files must be 25 MiB or smaller.'},413);
   const form=await request.formData(),clientId=forcedClientId||String(form.get('clientId')||''),email=normalizeEmail(form.get('email')),title=clean(form.get('title'),250),category=clean(form.get('category')||'General',100),file=form.get('file');
   if(!title||!(file instanceof File)||file.size===0)return json({error:'Client, title and file are required.'},400);
   if(file.size>25*1024*1024)return json({error:'Files must be 25 MiB or smaller.'},413);
@@ -197,15 +203,11 @@ async function uploadDocument(request,env,staffId,forcedClientId='',linkedReques
   if(!user)return json({error:'No active client account was found.'},404);
   const id=crypto.randomUUID(),ext=extensionFromName(file.name),r2Key=`clients/${user.id}/${id}${ext}`,now=new Date().toISOString();
   await env.DB.prepare('INSERT INTO documents (id,user_id,title,category,r2_key,mime_type,file_size,created_at,uploaded_by_staff_id,linked_request_id,object_status) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(id,user.id,title,category,r2Key,'application/pdf',file.size,now,staffId,linkedRequestId||null,'pending').run();
-  try {
-    await env.CLIENT_FILES.put(r2Key,file.stream(),{httpMetadata:{contentType:'application/pdf'}});
-    await env.DB.prepare('UPDATE documents SET object_status=? WHERE id=?').bind('available',id).run();
-    if(staffId)await audit(env.DB,staffId,'document.uploaded','document',id,{userId:user.id,linkedRequestId:linkedRequestId||null});
-  } catch (error) {
-    await env.CLIENT_FILES.delete(r2Key).catch(()=>{});
-    await env.DB.prepare('DELETE FROM documents WHERE id=? AND object_status=?').bind(id,'pending').run();
-    throw error;
-  }
+  try { await env.CLIENT_FILES.put(r2Key,file.stream(),{httpMetadata:{contentType:'application/pdf'}}); }
+  catch (error) { await env.DB.prepare('UPDATE documents SET object_status=? WHERE id=?').bind('failed',id).run(); throw error; }
+  try { await env.DB.prepare('UPDATE documents SET object_status=? WHERE id=?').bind('available',id).run(); }
+  catch (error) { throw error; }
+  if(staffId)await audit(env.DB,staffId,'document.uploaded','document',id,{userId:user.id,linkedRequestId:linkedRequestId||null});
   return json({ok:true,id,createdAt:now},201);
 }
 
@@ -258,11 +260,12 @@ async function listRequests(db){
   const r=await db.prepare(`SELECT q.id,q.user_id,q.request_type,q.notes,q.status,q.created_at,q.updated_at,u.email,u.name,(SELECT d.id FROM documents d WHERE d.linked_request_id=q.id ORDER BY d.created_at DESC LIMIT 1) fulfilled_document_id FROM document_requests q JOIN users u ON u.id=q.user_id ORDER BY CASE q.status WHEN 'new' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'completed' THEN 2 ELSE 3 END,q.updated_at DESC`).all();
   return json({requests:r.results||[]});
 }
-async function updateRequestStatus(request,db,id){
+async function updateRequestStatus(request,db,id,staffId=null){
   const body=await readJson(request),status=String(body.status||''),allowed=new Set(['new','in_progress','completed','declined']);
   if(!allowed.has(status))return json({error:'Invalid request status.'},400);
   const result=await db.prepare('UPDATE document_requests SET status=?,updated_at=? WHERE id=?').bind(status,new Date().toISOString(),id).run();
   if(!result.meta.changes)return json({error:'Request not found.'},404);
+  if(staffId)await audit(db,staffId,'request.status_updated','document_request',id,{status});
   return json({ok:true,status});
 }
 
