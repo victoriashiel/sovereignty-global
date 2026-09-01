@@ -79,7 +79,7 @@ async function handleApi(request, env, url) {
     return json({ok:true,redirect:'/staff.html'},200,{ 'Set-Cookie':staffSessionCookie(session.token) });
   }
   if (pathname === '/api/staff/auth/logout' && request.method === 'POST') {
-    return json({ok:true});
+    return json({ok:true},200,{ 'Set-Cookie':clearCookie(STAFF_SESSION_COOKIE) });
     const token=getCookie(request,STAFF_SESSION_COOKIE); if(token) await env.DB.prepare('DELETE FROM staff_sessions WHERE token_hash=?').bind(await sha256(token)).run();
     return json({ok:true},200,{ 'Set-Cookie':clearCookie(STAFF_SESSION_COOKIE) });
   }
@@ -194,7 +194,7 @@ async function createInvitation(request,db,origin,staffId=null){
 
 async function uploadDocument(request,env,staffId,forcedClientId='',linkedRequestId=''){
   if(!env.CLIENT_FILES)return json({error:'R2 document storage is not bound yet.'},503);
-  const contentLength=Number(request.headers.get('Content-Length')||0);if(contentLength>26*1024*1024)return json({error:'Files must be 25 MiB or smaller.'},413);
+  const contentLength=Number(request.headers.get('Content-Length')||0);if(contentLength>25*1024*1024)return json({error:'Files must be 25 MiB or smaller.'},413);
   const form=await request.formData(),clientId=forcedClientId||String(form.get('clientId')||''),email=normalizeEmail(form.get('email')),title=clean(form.get('title'),250),category=clean(form.get('category')||'General',100),file=form.get('file');
   if(!title||!(file instanceof File)||file.size===0)return json({error:'Client, title and file are required.'},400);
   if(file.size>25*1024*1024)return json({error:'Files must be 25 MiB or smaller.'},413);
@@ -205,8 +205,7 @@ async function uploadDocument(request,env,staffId,forcedClientId='',linkedReques
   await env.DB.prepare('INSERT INTO documents (id,user_id,title,category,r2_key,mime_type,file_size,created_at,uploaded_by_staff_id,linked_request_id,object_status) VALUES (?,?,?,?,?,?,?,?,?,?,?)').bind(id,user.id,title,category,r2Key,'application/pdf',file.size,now,staffId,linkedRequestId||null,'pending').run();
   try { await env.CLIENT_FILES.put(r2Key,file.stream(),{httpMetadata:{contentType:'application/pdf'}}); }
   catch (error) { await env.DB.prepare('UPDATE documents SET object_status=? WHERE id=?').bind('failed',id).run(); throw error; }
-  try { await env.DB.prepare('UPDATE documents SET object_status=? WHERE id=?').bind('available',id).run(); }
-  catch (error) { throw error; }
+  await env.DB.prepare('UPDATE documents SET object_status=? WHERE id=?').bind('available',id).run();
   if(staffId)await audit(env.DB,staffId,'document.uploaded','document',id,{userId:user.id,linkedRequestId:linkedRequestId||null});
   return json({ok:true,id,createdAt:now},201);
 }
