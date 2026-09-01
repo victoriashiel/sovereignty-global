@@ -24,29 +24,48 @@ if (navToggle && nav) {
 const year = document.querySelector('#year');
 if (year) year.textContent = new Date().getFullYear();
 
+// Use the SG motif from a root-level asset path so Cloudflare serves it consistently.
+const motifSrc = '/favicon.png?v=20260901';
 const footerBrand = document.querySelector('.site-footer .footer-brand');
-if (footerBrand && !footerBrand.querySelector('.footer-motif')) {
+if (footerBrand) {
+  let motifLink = footerBrand.querySelector('.footer-motif');
   const oldBrand = footerBrand.querySelector('.brand');
-  if (oldBrand) {
-    const motifLink = document.createElement('a');
+
+  if (!motifLink && oldBrand) {
+    motifLink = document.createElement('a');
     motifLink.className = 'footer-motif';
     motifLink.href = '/';
     motifLink.setAttribute('aria-label', 'Sovereignty Global home');
+    oldBrand.replaceWith(motifLink);
+  }
 
-    const motif = document.createElement('img');
-    motif.src = '/assets/sg-motif.png';
-    motif.alt = '';
+  if (motifLink) {
+    let motif = motifLink.querySelector('img');
+    if (!motif) {
+      motif = document.createElement('img');
+      motif.alt = '';
+      motifLink.appendChild(motif);
+    }
+    motif.src = motifSrc;
     motif.width = 88;
     motif.height = 88;
     motif.style.display = 'block';
     motif.style.width = '88px';
     motif.style.height = '88px';
     motif.style.objectFit = 'contain';
-
-    motifLink.appendChild(motif);
-    oldBrand.replaceWith(motifLink);
   }
 }
+
+// Explicit favicon for pages that load the shared script. A root favicon.ico is also committed
+// so portal/staff pages and browsers that do not execute this script still get the motif.
+let favicon = document.querySelector('link[rel~="icon"]');
+if (!favicon) {
+  favicon = document.createElement('link');
+  favicon.rel = 'icon';
+  document.head.appendChild(favicon);
+}
+favicon.type = 'image/png';
+favicon.href = motifSrc;
 
 const signupForm = document.querySelector('.signup-form');
 if (signupForm) signupForm.addEventListener('submit', (event) => {
