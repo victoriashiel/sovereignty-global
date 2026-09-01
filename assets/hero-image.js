@@ -1,1 +1,0 @@
-// Hero image data is injected by the build assistant.

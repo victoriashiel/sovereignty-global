@@ -1,1 +1,0 @@
-Homepage hero should use the user-supplied lakeside infinity pool image with a navy-to-transparent gradient blending from the text side into the photograph.
