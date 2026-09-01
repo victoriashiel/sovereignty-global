@@ -8,8 +8,8 @@
   --white: #f6f8fb;
   --muted: #b7c0cb;
   --line: rgba(255,255,255,.13);
-  --serif: 'Libre Caslon Display', Georgia, serif;
-  --sans: 'DM Sans', Arial, sans-serif;
+  --serif: 'Didot', 'Playfair Display', 'Bodoni MT', Georgia, serif;
+  --sans: 'Montserrat', Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -19,6 +19,7 @@ body {
   background: var(--navy);
   color: var(--white);
   font-family: var(--sans);
+  font-weight: 500;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
@@ -118,7 +119,7 @@ img { max-width: 100%; display: block; }
 .section-heading h2,
 .consultation h2 {
   font-family: var(--serif);
-  font-weight: 400;
+  font-weight: 700;
 }
 .hero h1 {
   margin: 0;
@@ -214,7 +215,7 @@ img { max-width: 100%; display: block; }
   margin: 18px 0 8px;
   font-family: var(--serif);
   font-size: 1.65rem;
-  font-weight: 400;
+  font-weight: 700;
 }
 .service-card p { margin: 0; color: #d1d5da; font-size: .92rem; }
 .service-card a {
@@ -251,7 +252,7 @@ img { max-width: 100%; display: block; }
 .trust-item strong {
   font-family: var(--serif);
   font-size: 2.1rem;
-  font-weight: 400;
+  font-weight: 700;
   line-height: 1;
 }
 .trust-item span:last-child {
