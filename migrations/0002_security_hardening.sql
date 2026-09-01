@@ -1,9 +1,9 @@
 -- Apply once to the production legacy schema after its Worker-added
--- documents.linked_request_id column exists. This transaction preserves client
--- IDs and R2 keys, discards obsolete staff password sessions, and creates the
--- first manager from the legacy legal account. Take a D1 backup before applying.
-PRAGMA foreign_keys = OFF;
-BEGIN IMMEDIATE;
+-- documents.linked_request_id column exists. D1 executes migrations inside an
+-- implicit transaction, so this file deliberately does not issue BEGIN/COMMIT.
+-- IDs and R2 keys are preserved, obsolete staff password sessions are discarded,
+-- and the legacy legal account becomes the first manager. Take a D1 backup first.
+PRAGMA defer_foreign_keys = ON;
 
 ALTER TABLE users RENAME TO legacy_users;
 ALTER TABLE staff_users RENAME TO legacy_staff_users;
@@ -44,6 +44,5 @@ CREATE INDEX idx_documents_user_available ON documents(user_id,object_status,cre
 CREATE INDEX idx_requests_user_created ON document_requests(user_id,created_at DESC);
 CREATE INDEX idx_documents_request ON documents(linked_request_id);
 CREATE INDEX idx_audit_events_created ON audit_events(created_at DESC);
-COMMIT;
-PRAGMA foreign_keys = ON;
+PRAGMA defer_foreign_keys = OFF;
 PRAGMA foreign_key_check;
