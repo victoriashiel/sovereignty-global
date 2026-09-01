@@ -1,5 +1,3 @@
-document.documentElement.classList.add('js');
-
 const nav = document.querySelector('.primary-nav');
 let navToggle = document.querySelector('.nav-toggle');
 if (nav && !navToggle) {
