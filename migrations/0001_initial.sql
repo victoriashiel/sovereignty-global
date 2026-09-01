@@ -1,0 +1,2 @@
+-- Apply only to a new D1 database.
+-- schema.sql is the canonical initial schema.

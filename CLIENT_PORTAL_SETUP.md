@@ -1,75 +1,31 @@
-# Sovereignty Global client portal setup
+# Sovereignty Global portal deployment
 
-The application code is ready for D1 + R2. The account-level Cloudflare resources must exist before the bindings can be enabled.
+## Database migrations
 
-## 1. Create the D1 database
+Apply `schema.sql` only when creating a new D1 database. It is the canonical schema and includes foreign keys, deletion semantics, role support, audit events, and document object states.
 
-```bash
-npx wrangler d1 create sovereignty-global-clients
-```
-
-Copy the `database_id` returned by Cloudflare.
-
-Apply the schema:
+Existing legacy databases must first apply `migrations/0002_security_hardening.sql`. Schedule a maintenance window to rebuild legacy tables from `schema.sql` so that foreign-key and check constraints are enforced; SQLite cannot add those constraints in place.
 
 ```bash
 npx wrangler d1 execute sovereignty-global-clients --remote --file=schema.sql
+# Existing legacy database only:
+npx wrangler d1 execute sovereignty-global-clients --remote --file=migrations/0002_security_hardening.sql
 ```
 
-## 2. Create the private R2 bucket
+## Required Cloudflare Access policy
 
-```bash
-npx wrangler r2 bucket create sovereignty-global-client-files
-```
+Do **not** expose `/staff.html` or `/api/staff/*` publicly. Before deployment, create a Cloudflare Access application covering both paths and require the organisation identity provider with MFA. The Worker accepts staff requests only when Access supplies both `Cf-Access-Authenticated-User-Email` and `Cf-Access-Jwt-Assertion`; configure Access so these headers cannot be supplied by an untrusted origin.
 
-Do not expose this bucket publicly. Client downloads are authorised and streamed through the Worker.
+Provision each authorised employee as a separate `staff_users` record with a unique email, an `active` status, and the least-privileged role:
 
-## 3. Enable the bindings in `wrangler.jsonc`
+- `viewer`: read-only access
+- `operator`: client/document/request operations
+- `manager`: employee lifecycle and destructive operations
 
-Uncomment the `d1_databases` and `r2_buckets` blocks. Set the D1 `database_id` to the ID from step 1.
+The legacy browser `ADMIN_API_KEY` interface has been removed. Never put a Worker secret in a browser.
 
-Bindings must remain exactly:
+## Documents and client access
 
-- D1: `DB`
-- R2: `CLIENT_FILES`
+The R2 bucket must remain private. The Worker accepts only validated PDF uploads up to 25 MiB and always downloads them as attachments. Metadata starts as `pending` and is visible to clients only after R2 writes succeed. Reconcile `pending`/`failed` records and R2 objects after operational failures.
 
-## 4. Add the admin secret
-
-Create a long random secret and store it as a Worker secret:
-
-```bash
-npx wrangler secret put ADMIN_API_KEY
-```
-
-Do not commit the secret to GitHub or put it in `wrangler.jsonc`.
-
-## 5. Deploy
-
-```bash
-npx wrangler deploy
-```
-
-## 6. Client journey
-
-1. Open `/admin.html` and enter the `ADMIN_API_KEY` for the current browser session.
-2. Create an invitation for the onboarded client's name and email.
-3. Copy the generated `/activate.html?invite=...` URL to the client.
-4. The invitation is single-use and expires after the chosen period.
-5. The client creates a password (minimum 12 characters).
-6. They are signed into `/portal.html` with an HttpOnly, Secure, SameSite=Strict session cookie.
-7. Upload documents to that client from `/admin.html`; files are stored privately in R2 and metadata in D1.
-8. Client document downloads are checked against the authenticated user before the Worker streams the R2 object.
-9. Client document requests appear in the admin request queue where their status can be updated.
-
-## Security model
-
-- No public sign-up endpoint exists.
-- Invitation tokens are stored in D1 only as SHA-256 hashes.
-- Invitation links are single-use and time-limited.
-- Passwords are PBKDF2-SHA-256 hashed with per-user random salts and 150,000 iterations.
-- Session tokens are random, stored only as SHA-256 hashes in D1, and expire after seven days.
-- Browser session cookies are HttpOnly, Secure and SameSite=Strict.
-- R2 has no public client URL; files are served only after account-level authorisation.
-- Admin operations require the `ADMIN_API_KEY` Worker secret.
-
-For a later phase, the admin API key can be replaced with Cloudflare Access / staff SSO without changing the client data model.
+Client accounts use 150,000-iteration PBKDF2-SHA-256 hashes and Secure, HttpOnly, SameSite=Strict cookies. Staff authentication is delegated to Cloudflare Access rather than a shared portal password. The canonical client destination is `/portal-overview.html`.
