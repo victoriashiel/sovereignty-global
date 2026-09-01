@@ -68,6 +68,7 @@ async function handleApi(request, env, url) {
     return json({ok:true},200,{ 'Set-Cookie':clearCookie(SESSION_COOKIE) });
   }
 
+  /* Legacy password-based staff authentication is retired.
   if (pathname === '/api/staff/auth/login' && request.method === 'POST') {
     return json({error:'Staff password authentication has been removed. Sign in through Cloudflare Access.'},410);
     const body=await readJson(request), email=normalizeEmail(body.email), password=String(body.password||'');
@@ -84,6 +85,7 @@ async function handleApi(request, env, url) {
     return json({ok:true},200,{ 'Set-Cookie':clearCookie(STAFF_SESSION_COOKIE) });
   }
 
+  */
   if (pathname.startsWith('/api/admin/')) return json({error:'Browser bearer-secret administration has been removed. Use Cloudflare Access-protected staff routes.'},404);
   if (pathname.startsWith('/api/staff/')) return handleStaff(request,env,url);
 
@@ -232,8 +234,8 @@ async function fulfilRequest(request,env,staffId,requestId){
 async function deleteDocument(env,id,staffId=null){
   const doc=await env.DB.prepare('SELECT id,r2_key FROM documents WHERE id=?').bind(id).first();
   if(!doc)return json({error:'Document not found.'},404);
-  if(env.CLIENT_FILES&&doc.r2_key)await env.CLIENT_FILES.delete(doc.r2_key);
   await env.DB.prepare('DELETE FROM documents WHERE id=?').bind(id).run();
+  if(env.CLIENT_FILES&&doc.r2_key)await env.CLIENT_FILES.delete(doc.r2_key);
   if(staffId)await audit(env.DB,staffId,'document.deleted','document',id,{});
   return json({ok:true});
 }
@@ -242,7 +244,6 @@ async function deleteClient(env,id,staffId=null){
   const client=await env.DB.prepare('SELECT id,email FROM users WHERE id=?').bind(id).first();
   if(!client)return json({error:'Client not found.'},404);
   const docs=await env.DB.prepare('SELECT r2_key FROM documents WHERE user_id=?').bind(id).all();
-  if(env.CLIENT_FILES){for(const d of docs.results||[]){if(d.r2_key)await env.CLIENT_FILES.delete(d.r2_key)}}
   await env.DB.batch([
     env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(id),
     env.DB.prepare('DELETE FROM documents WHERE user_id=?').bind(id),
@@ -251,6 +252,7 @@ async function deleteClient(env,id,staffId=null){
     env.DB.prepare('DELETE FROM invitations WHERE email=?').bind(client.email),
     env.DB.prepare('DELETE FROM users WHERE id=?').bind(id),
   ]);
+  if(env.CLIENT_FILES){for(const d of docs.results||[]){if(d.r2_key)await env.CLIENT_FILES.delete(d.r2_key)}}
   if(staffId)await audit(env.DB,staffId,'client.deleted','user',id,{email:client.email});
   return json({ok:true});
 }
@@ -309,10 +311,10 @@ function clearCookie(name){return`${name}=; Path=/; HttpOnly; Secure; SameSite=S
 async function readJson(request){try{return await request.json()}catch{return{}}}
 function json(data,status=200,extraHeaders={}){return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...extraHeaders}})}
 async function isPdf(file){return new TextDecoder().decode(await file.slice(0,5).arrayBuffer())==='%PDF-'}
-async function loginSubject(request,email){return sha256(`${email}:${request.headers.get('CF-Connecting-IP')||''}`)}
-async function isRateLimited(request,db,email){const row=await db.prepare('SELECT count,window_started_at FROM login_failures WHERE subject_hash=?').bind(await loginSubject(request,email)).first();return !!row&&Date.now()-Date.parse(row.window_started_at)<900000&&row.count>=5}
-async function recordFailedLogin(request,db,email){const subject=await loginSubject(request,email),now=new Date().toISOString(),row=await db.prepare('SELECT count,window_started_at FROM login_failures WHERE subject_hash=?').bind(subject).first(),count=!row||Date.now()-Date.parse(row.window_started_at)>=900000?1:row.count+1;await db.prepare('INSERT INTO login_failures(subject_hash,count,window_started_at,updated_at) VALUES(?,?,?,?) ON CONFLICT(subject_hash) DO UPDATE SET count=excluded.count,window_started_at=excluded.window_started_at,updated_at=excluded.updated_at').bind(subject,count,count===1?now:row.window_started_at,now).run()}
-async function clearFailedLogins(request,db,email){await db.prepare('DELETE FROM login_failures WHERE subject_hash=?').bind(await loginSubject(request,email)).run()}
-async function audit(db,staffId,action,targetType,targetId,metadata){await db.prepare('INSERT INTO audit_events(id,actor_staff_id,action,target_type,target_id,metadata,created_at) VALUES(?,?,?,?,?,?,?)').bind(crypto.randomUUID(),staffId,action,targetType,targetId,JSON.stringify(metadata),new Date().toISOString()).run()}
+async function loginSubjects(request,email){const ip=request.headers.get('CF-Connecting-IP')||'unknown';return Promise.all([sha256(`account:${email}`),sha256(`ip:${ip}`),sha256(`pair:${email}:${ip}`)])}
+async function isRateLimited(request,db,email){const subjects=await loginSubjects(request,email),rows=await Promise.all(subjects.map(subject=>db.prepare('SELECT count,window_started_at FROM login_failures WHERE subject_hash=?').bind(subject).first()));return rows.some(row=>row&&Date.now()-Date.parse(row.window_started_at)<900000&&row.count>=5)}
+async function recordFailedLogin(request,db,email){const now=new Date().toISOString();for(const subject of await loginSubjects(request,email)){const row=await db.prepare('SELECT count,window_started_at FROM login_failures WHERE subject_hash=?').bind(subject).first(),fresh=!row||Date.now()-Date.parse(row.window_started_at)>=900000,count=fresh?1:row.count+1;await db.prepare('INSERT INTO login_failures(subject_hash,count,window_started_at,updated_at) VALUES(?,?,?,?) ON CONFLICT(subject_hash) DO UPDATE SET count=excluded.count,window_started_at=excluded.window_started_at,updated_at=excluded.updated_at').bind(subject,count,fresh?now:row.window_started_at,now).run()}await db.prepare('DELETE FROM login_failures WHERE updated_at<?').bind(new Date(Date.now()-86400000).toISOString()).run()}
+async function clearFailedLogins(request,db,email){for(const subject of await loginSubjects(request,email))await db.prepare('DELETE FROM login_failures WHERE subject_hash=?').bind(subject).run()}
+async function audit(db,staffId,action,targetType,targetId,metadata){try{await db.prepare('INSERT INTO audit_events(id,actor_staff_id,action,target_type,target_id,metadata,created_at) VALUES(?,?,?,?,?,?,?)').bind(crypto.randomUUID(),staffId,action,targetType,targetId,JSON.stringify(metadata),new Date().toISOString()).run()}catch(error){console.error('Audit event could not be stored',error)}}
 async function verifyAccessToken(token,env){try{if(!token||!env.ACCESS_TEAM_DOMAIN||!env.STAFF_ACCESS_AUD)return '';const [encodedHeader,encodedClaims,encodedSignature]=token.split('.');if(!encodedSignature)return '';const header=JSON.parse(new TextDecoder().decode(base64UrlToBytes(encodedHeader))),claims=JSON.parse(new TextDecoder().decode(base64UrlToBytes(encodedClaims))),time=Math.floor(Date.now()/1000);if(header.alg!=='RS256'||!header.kid||!normalizeEmail(claims.email)||claims.iss!==`https://${env.ACCESS_TEAM_DOMAIN}`||claims.exp<=time||(claims.nbf&&claims.nbf>time)||!(Array.isArray(claims.aud)?claims.aud:[claims.aud]).includes(env.STAFF_ACCESS_AUD))return '';const now=Date.now(),jwks=accessJwksCache&&accessJwksCache.expiresAt>now?accessJwksCache.keys:await fetch(`https://${env.ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`).then(r=>{if(!r.ok)throw new Error('Unable to load Access keys');return r.json()});if(jwks!==accessJwksCache?.keys)accessJwksCache={keys:jwks,expiresAt:now+3600000};const jwk=(jwks.keys||[]).find(key=>key.kid===header.kid);if(!jwk)return '';const key=await crypto.subtle.importKey('jwk',jwk,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['verify']);return await crypto.subtle.verify({name:'RSASSA-PKCS1-v1_5'},key,base64UrlToBytes(encodedSignature),enc.encode(`${encodedHeader}.${encodedClaims}`))?normalizeEmail(claims.email):''}catch{return ''}}
 function withSecurityHeaders(response){const headers=new Headers(response.headers);headers.set('Content-Security-Policy',"default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; img-src 'self' data: https://images.unsplash.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self'");headers.set('X-Frame-Options','DENY');headers.set('Referrer-Policy','same-origin');headers.set('Permissions-Policy','camera=(), geolocation=(), microphone=(), payment=(), usb=()');headers.set('Strict-Transport-Security','max-age=31536000; includeSubDomains');headers.set('X-Content-Type-Options','nosniff');return new Response(response.body,{status:response.status,statusText:response.statusText,headers})}

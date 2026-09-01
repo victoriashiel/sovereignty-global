@@ -4,11 +4,11 @@
 
 Apply `schema.sql` only when creating a new D1 database. It is the canonical schema and includes foreign keys, deletion semantics, role support, audit events, and document object states.
 
-Existing legacy databases must first inspect their table columns before applying `migrations/0002_security_hardening.sql`; it is intentionally a one-time migration for the unmodified legacy schema and must not be retried after a partial/manual application. If `documents.linked_request_id`, `documents.object_status`, or `staff_users.role` already exists, rebuild from `schema.sql` in a maintenance window instead. SQLite cannot add the required foreign-key and check constraints in place.
+Existing production databases that have the legacy Worker-created `documents.linked_request_id` must apply `migrations/0002_security_hardening.sql` exactly once. It is an in-place transactional rebuild: it preserves client IDs, invitation/session records, document R2 keys, request links and profile data; creates Access-only staff roles; drops obsolete staff password sessions; and runs `foreign_key_check`. Take a D1 backup first and verify that check returns no rows before deploying the Worker.
 
 ```bash
-npx wrangler d1 execute sovereignty-global-clients --remote --file=schema.sql
-# Existing legacy database only:
+npx wrangler d1 execute sovereignty-global-clients --remote --file=schema.sql # new database only
+# Existing production database with legacy documents.linked_request_id:
 npx wrangler d1 execute sovereignty-global-clients --remote --file=migrations/0002_security_hardening.sql
 ```
 

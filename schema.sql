@@ -19,10 +19,6 @@ CREATE TABLE sessions (
   token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   expires_at TEXT NOT NULL, created_at TEXT NOT NULL
 );
-CREATE TABLE staff_sessions (
-  token_hash TEXT PRIMARY KEY, staff_user_id TEXT NOT NULL REFERENCES staff_users(id) ON DELETE CASCADE,
-  expires_at TEXT NOT NULL, created_at TEXT NOT NULL
-);
 CREATE TABLE client_profiles (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, phone TEXT, nationality TEXT,
   country_of_residence TEXT, tax_residence TEXT, client_reference TEXT, address TEXT,
