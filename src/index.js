@@ -3,6 +3,7 @@ export { ClientOnboardingWorkflow } from './onboarding-workflow.js';
 
 const PRIVATE_PAGE_RE = /^\/(?:login|activate|portal(?:-|\.|\/)|staff(?:-|\.|\/))/i;
 const STATIC_ASSET_RE = /\.(?:css|js|png|jpe?g|webp|svg|ico|woff2?)$/i;
+const BLOCKED_PATH_RE = /(?:^|\/)(?:\.env(?:\..*)?|\.git(?:\/|$)|wrangler\.jsonc|schema\.sql|package(?:-lock)?\.json|bun\.lockb?|.*\.sql)$/i;
 const SESSION_COOKIE = 'sg_session';
 
 export default {
@@ -13,14 +14,25 @@ export default {
     const eventRequest = request.clone();
     let response;
 
-    try {
-      response = await app.fetch(request, env, ctx);
-    } catch (error) {
-      logError('http.unhandled_error', error, { requestId, method: request.method, path: url.pathname });
-      response = new Response(JSON.stringify({ error: 'Unexpected server error.' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+    if (BLOCKED_PATH_RE.test(url.pathname)) {
+      response = new Response('Not found', {
+        status: 404,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'private, no-store',
+          'X-Content-Type-Options': 'nosniff',
+        },
       });
+    } else {
+      try {
+        response = await app.fetch(request, env, ctx);
+      } catch (error) {
+        logError('http.unhandled_error', error, { requestId, method: request.method, path: url.pathname });
+        response = new Response(JSON.stringify({ error: 'Unexpected server error.' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+        });
+      }
     }
 
     const decorated = decorateResponse(response, request, url, requestId);
@@ -64,7 +76,7 @@ function decorateResponse(response, request, url, requestId) {
   const headers = new Headers(response.headers);
   headers.set('X-Request-ID', requestId);
 
-  if (url.pathname.startsWith('/api/') || PRIVATE_PAGE_RE.test(url.pathname)) {
+  if (url.pathname.startsWith('/api/') || PRIVATE_PAGE_RE.test(url.pathname) || BLOCKED_PATH_RE.test(url.pathname)) {
     headers.set('Cache-Control', 'private, no-store');
   } else if (request.method === 'GET' || request.method === 'HEAD') {
     if (STATIC_ASSET_RE.test(url.pathname)) {
