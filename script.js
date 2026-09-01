@@ -25,7 +25,7 @@ const year = document.querySelector('#year');
 if (year) year.textContent = new Date().getFullYear();
 
 // Use the SG motif from a root-level asset path so Cloudflare serves it consistently.
-const motifSrc = '/favicon.png?v=20260901';
+const motifSrc = '/favicon.png?v=20260901d';
 const footerBrand = document.querySelector('.site-footer .footer-brand');
 if (footerBrand) {
   let motifLink = footerBrand.querySelector('.footer-motif');
