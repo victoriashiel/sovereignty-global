@@ -50,3 +50,14 @@ CREATE INDEX idx_documents_user_available ON documents(user_id, object_status, c
 CREATE INDEX idx_requests_user_created ON document_requests(user_id, created_at DESC);
 CREATE INDEX idx_documents_request ON documents(linked_request_id);
 CREATE INDEX idx_audit_events_created ON audit_events(created_at DESC);
+CREATE INDEX idx_users_status_created ON users(status, created_at DESC);
+CREATE INDEX idx_sessions_expires ON sessions(expires_at);
+CREATE INDEX idx_sessions_user ON sessions(user_id);
+CREATE INDEX idx_invitations_email ON invitations(email);
+CREATE INDEX idx_invitations_expires ON invitations(expires_at);
+CREATE INDEX idx_requests_user_status_updated ON document_requests(user_id, status, updated_at DESC);
+CREATE INDEX idx_requests_status_updated ON document_requests(status, updated_at DESC);
+CREATE INDEX idx_documents_status_created ON documents(object_status, created_at DESC);
+CREATE INDEX idx_login_failures_updated ON login_failures(updated_at);
+CREATE INDEX idx_audit_target_created ON audit_events(target_type, target_id, created_at DESC);
+PRAGMA optimize;
