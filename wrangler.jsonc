@@ -1,14 +1,18 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "sovereignty-global",
-  "main": "src/worker.js",
-  "compatibility_date": "2026-08-31",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
   "observability": {
-    "enabled": false,
+    "enabled": true,
+    "head_sampling_rate": 1,
     "logs": {
-      "enabled": false,
+      "enabled": true,
       "invocation_logs": true
     }
+  },
+  "triggers": {
+    "crons": ["17 3 * * *"]
   },
   "assets": {
     "directory": ".",
