@@ -6,7 +6,9 @@
     "dev": "wrangler dev",
     "db:create": "wrangler d1 create sovereignty-global-clients",
     "db:schema": "wrangler d1 execute sovereignty-global-clients --remote --file=schema.sql",
-    "files:create": "wrangler r2 bucket create sovereignty-global-client-files"
+    "files:create": "wrangler r2 bucket create sovereignty-global-client-files",
+    "check": "node --check src/worker.js && node --check auth-ui.js && node --check staff-ui.js",
+    "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

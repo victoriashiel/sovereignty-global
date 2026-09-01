@@ -1,6 +1,6 @@
 const $=(s)=>document.querySelector(s);const $$=(s)=>[...document.querySelectorAll(s)];
 const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-const show=(el,text,type='info')=>{if(!el)return;el.textContent=text;el.dataset.type=type;el.classList.add('is-visible')};
+const show=(el,text,type='info')=>{if(!el)return;el.setAttribute('role',type==='error'?'alert':'status');el.setAttribute('aria-live',type==='error'?'assertive':'polite');el.textContent=text;el.dataset.type=type;el.classList.add('is-visible')};
 const clear=el=>{if(!el)return;el.textContent='';el.classList.remove('is-visible')};
 const fmtDate=v=>{try{return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(new Date(v))}catch{return''}};
 const statusLabel=v=>({new:'New',in_progress:'In progress',completed:'Completed',declined:'Declined'})[v]||v;
