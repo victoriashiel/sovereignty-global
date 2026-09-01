@@ -32,7 +32,7 @@ export class ClientOnboardingWorkflow extends WorkflowEntrypoint {
     await step.sleep('wait for first review', '7 days');
     const firstReview = await step.do('check onboarding after seven days', async () => checkClient(this.env, userId, workflowId));
     if (firstReview.status !== 'onboarding') {
-      return finishWorkflow(this.env, userId, workflowId, firstReview.status);
+      return step.do('finish onboarding after first review', async () => finishWorkflow(this.env, userId, workflowId, firstReview.status));
     }
 
     await step.do('queue first onboarding reminder', async () => {
@@ -50,21 +50,22 @@ export class ClientOnboardingWorkflow extends WorkflowEntrypoint {
     await step.sleep('wait for second review', '7 days');
     const secondReview = await step.do('check onboarding after fourteen days', async () => checkClient(this.env, userId, workflowId));
     if (secondReview.status !== 'onboarding') {
-      return finishWorkflow(this.env, userId, workflowId, secondReview.status);
+      return step.do('finish onboarding after second review', async () => finishWorkflow(this.env, userId, workflowId, secondReview.status));
     }
 
     await step.do('queue second onboarding reminder', async () => {
+      const now = new Date().toISOString();
       await sendEvent(this.env, {
         id: crypto.randomUUID(),
         type: 'onboarding.review_due',
         userId,
         workflowId,
         reviewNumber: 2,
-        occurredAt: new Date().toISOString(),
+        occurredAt: now,
         metadata: { documents: secondReview.documents, openRequests: secondReview.openRequests },
       });
       await this.env.DB.prepare("UPDATE onboarding_workflows SET status='attention',last_checked_at=? WHERE user_id=? AND workflow_id=?")
-        .bind(new Date().toISOString(), userId, workflowId).run();
+        .bind(now, userId, workflowId).run();
     });
 
     return { userId, workflowId, status: 'attention' };
