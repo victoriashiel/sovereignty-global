@@ -49,7 +49,7 @@
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "404-page"
   },
   "d1_databases": [
     {

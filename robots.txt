@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /login.html
+Disallow: /activate.html
+Disallow: /portal
+Disallow: /staff
+
+Sitemap: https://sovereigntyglobal.org/sitemap.xml
