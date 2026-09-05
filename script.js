@@ -67,6 +67,29 @@ if (!favicon) {
 favicon.type = 'image/png';
 favicon.href = motifSrc;
 
+// Cookie notice. We only set a strictly-necessary session cookie, so this is
+// an informational notice (not a consent gate). Dismissal is remembered in
+// local storage. Built in JS so it can share one implementation across pages.
+(function cookieNotice() {
+  try { if (localStorage.getItem('sg-cookie-notice') === 'dismissed') return; } catch (e) {}
+  const bar = document.createElement('div');
+  bar.className = 'cookie-notice';
+  bar.setAttribute('role', 'region');
+  bar.setAttribute('aria-label', 'Cookie notice');
+  const text = document.createElement('p');
+  text.innerHTML = 'We use a single strictly-necessary cookie to keep you signed in to the client portal. We don’t use tracking or advertising cookies. See our <a href="/privacy.html">Privacy &amp; Cookie Policy</a>.';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'cookie-notice__dismiss';
+  button.textContent = 'Got it';
+  button.addEventListener('click', () => {
+    bar.remove();
+    try { localStorage.setItem('sg-cookie-notice', 'dismissed'); } catch (e) {}
+  });
+  bar.append(text, button);
+  document.body.appendChild(bar);
+})();
+
 const signupForm = document.querySelector('.signup-form');
 if (signupForm) signupForm.addEventListener('submit', (event) => {
   event.preventDefault();
